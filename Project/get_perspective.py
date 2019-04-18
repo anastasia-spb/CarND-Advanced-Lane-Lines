@@ -33,6 +33,8 @@ def choose_points(img_input):
     2. Choose upper right point
     3. Choose bottom right point
     4. Choose bottom left point
+    Important observations: choose bottom points
+    as much as possible close to the image bottom
     """
 
     copy_img = img_input.copy()
@@ -76,18 +78,19 @@ def align_manually_chosen_points(points, offset_top=0, offset_bottom=0):
     return src
 
 
-def set_destination_points(input_img, offset_x_left=0, offset_x_right=0, offset_y=400):
+def set_destination_points(input_img, offset_x=100, offset_y=200):
     [x, y, z] = input_img.shape
     dst = np.float32(
-        [[offset_x_left, offset_y], [x - offset_x_right, offset_y], [x - offset_x_right, y], [offset_x_left, y]])
+        [[offset_x, offset_y], [x - offset_x, offset_y], [x - offset_x, y], [offset_x, y]])
     return dst
 
 
 def get_perpective_matrix():
-    M = np.array([[-5.19791054e-01, -8.21071218e-01, 6.76450118e+02],
-                  [-2.16134672e-16, -4.15133902e+00, 2.00156342e+03],
-                  [-5.63756296e-19, -2.38651413e-03, 1.00000000e+00]])
+    M = np.array([[-4.13308420e-01, -8.37005327e-01, 6.15526118e+02],
+                  [-1.64763533e-15, -3.83969657e+00, 1.84070725e+03],
+                  [-1.33349842e-18, -2.38795772e-03, 1.00000000e+00]])
     return M
+
 
 def calculate_perpective_matrix(input_img, calculate_matrix=False):
     if calculate_matrix == True:
@@ -100,12 +103,7 @@ def calculate_perpective_matrix(input_img, calculate_matrix=False):
     return M
 
 
-def main():
-    img_ref = cv2.imread('../test_images/straight_lines1.jpg')
-    M = calculate_perpective_matrix(img_ref)
-    print(M)
-    img_size = (img_ref.shape[1], img_ref.shape[0])
-    warped = cv2.warpPerspective(img_ref, M, img_size, flags=cv2.INTER_LINEAR)
+def visualize(img_ref, warped):
     # Visualize
     fig, ((ax1, ax2)) = plt.subplots(ncols=2, nrows=1, figsize=(20, 10))
     ax1.set_title('Original image')
@@ -115,10 +113,34 @@ def main():
     x = 50
     cv2.line(warped, (x, 0), (x, img_ref.shape[0]), (0, 255, 0), lineThickness)
 
-    ax2.set_title('Bird eye view')
+    ax2.set_title('Transformed image')
     ax2.imshow(warped)
 
     plt.show()
 
+    return
+
+
+def test_on_test_images():
+    images_names = glob.glob('../test_images/test*.jpg')
+    M = get_perpective_matrix()
+    for fname in images_names:
+        img = cv2.imread(fname)
+        img_size = (img.shape[1], img.shape[0])
+        warped = cv2.warpPerspective(img, M, img_size, flags=cv2.INTER_LINEAR)
+        visualize(img, warped)
+
+
+def main():
+    img_ref = cv2.imread('../test_images/straight_lines1.jpg')
+    M = calculate_perpective_matrix(img_ref, False)
+    print(M)
+    img_size = (img_ref.shape[1], img_ref.shape[0])
+    warped = cv2.warpPerspective(img_ref, M, img_size, flags=cv2.INTER_LINEAR)
+    # Visualize
+    visualize(img_ref, warped)
+
+
 if __name__ == '__main__':
     main()
+    test_on_test_images()
