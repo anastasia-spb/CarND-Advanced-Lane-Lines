@@ -52,7 +52,7 @@ def visualize_polynomials(img_ref, combined_binary, left_fitx, right_fitx):
 
     return
 
-def process_frame_pipelene(distorted_img):
+def process_first_frame(distorted_img):
     img_size = (distorted_img.shape[1], distorted_img.shape[0])
     # 0. Undistort
     img_undist = cv2.undistort(distorted_img, global_parameters.cam_mtx, global_parameters.dist_coeff, None, global_parameters.cam_mtx)
@@ -95,7 +95,7 @@ def test_on_test_images(save_intermediate = False, name_dir = ''):
     for fname in images_names:
         img = cv2.imread(fname)
         img_size = (img.shape[1], img.shape[0])
-        result = process_frame_pipelene(img)
+        result = process_first_frame(img)
         if save_intermediate == True:
             save_intermediate_result(result, name_dir, ntpath.basename(fname))
 

@@ -1,6 +1,8 @@
 import numpy as np
 import cv2
+import os
 import glob
+import ntpath
 import matplotlib.pyplot as plt
 
 
@@ -57,6 +59,7 @@ def choose_points(img_input):
 def align_manually_chosen_points(points, offset_top=0, offset_bottom=0):
     # We suppose that lines are parallel
     points_list = []
+    dist = points[0][0] - points[3][0]
     # upper left point
     x = points[0][0] - offset_top
     y = points[0][1]
@@ -66,7 +69,7 @@ def align_manually_chosen_points(points, offset_top=0, offset_bottom=0):
     y = points[0][1]  # on the same level as upper left point
     points_list.append([x, y])
     # bottom right point
-    x = points[2][0] + offset_bottom
+    x = points[1][0] + dist + offset_bottom
     y = points[2][1]
     points_list.append([x, y])
     # bottom left point
@@ -75,10 +78,24 @@ def align_manually_chosen_points(points, offset_top=0, offset_bottom=0):
     points_list.append([x, y])
 
     src = np.float32(points_list)
-    return src
+    return src, points_list
+
+def roi(img,vertices):
+    # blank mask
+    mask = np.zeros_like(img)
+    # filling pixels inside the polygon defined by vertices with the fill color
+    cv2.fillPoly(mask, vertices, 255)
+    # returning the image with all pixels
+    masked_background = cv2.bitwise_or(img, mask)
+    return masked_background
+
+def plot_mask_on_image(src_img, points_list):
+    vertices = np.array([points_list], dtype=np.int32)
+    masked_img = roi(src_img, vertices)
+    return masked_img
 
 
-def set_destination_points(input_img, offset_x=100, offset_y=200):
+def set_destination_points(input_img, offset_x=100, offset_y=300):
     [x, y, z] = input_img.shape
     dst = np.float32(
         [[offset_x, offset_y], [x - offset_x, offset_y], [x - offset_x, y], [offset_x, y]])
@@ -95,12 +112,14 @@ def get_perpective_matrix():
 def calculate_perpective_matrix(input_img, calculate_matrix=False):
     if calculate_matrix == True:
         points = choose_points(input_img)
-        src = align_manually_chosen_points(points)
+        src, points_list = align_manually_chosen_points(points)
+        result = plot_mask_on_image(input_img, points_list)
         dst = set_destination_points(input_img)
         M = cv2.getPerspectiveTransform(src, dst)
     else:
         M = get_perpective_matrix()
-    return M
+        result = input_img
+    return M, result
 
 
 def visualize(img_ref, warped):
@@ -120,27 +139,24 @@ def visualize(img_ref, warped):
 
     return
 
-
-def test_on_test_images():
-    images_names = glob.glob('../test_images/test*.jpg')
-    M = get_perpective_matrix()
-    for fname in images_names:
-        img = cv2.imread(fname)
-        img_size = (img.shape[1], img.shape[0])
-        warped = cv2.warpPerspective(img, M, img_size, flags=cv2.INTER_LINEAR)
-        visualize(img, warped)
-
+def save_binary_image(img, name_dir, img_name):
+    directory = '../test_images/' + name_dir
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    directory = directory + '/' + img_name
+    cv2.imwrite(directory, img.astype('uint8') * 255)
 
 def main():
-    img_ref = cv2.imread('../test_images/straight_lines1.jpg')
-    M = calculate_perpective_matrix(img_ref, False)
-    print(M)
-    img_size = (img_ref.shape[1], img_ref.shape[0])
-    warped = cv2.warpPerspective(img_ref, M, img_size, flags=cv2.INTER_LINEAR)
-    # Visualize
-    visualize(img_ref, warped)
+    images_names = glob.glob('../test_images/combined_binary/test*.jpg')
+    destination_dir_name = "warped"
+    for fname in images_names:
+        img = cv2.imread(fname)
+        M, masked_img = calculate_perpective_matrix(img, calculate_matrix = True)
+        img_size = (img.shape[1], img.shape[0])
+        warped = cv2.warpPerspective(img, M, img_size, flags=cv2.INTER_LINEAR)
+        visualize(masked_img, warped)
+        save_binary_image(warped, destination_dir_name, ntpath.basename(fname))
 
 
 if __name__ == '__main__':
     main()
-    test_on_test_images()

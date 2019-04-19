@@ -1,6 +1,8 @@
 import numpy as np
 import cv2
+import os
 import glob
+import ntpath
 import matplotlib.pyplot as plt
 
 def abs_sobel_thresh(image, orient='x', thresh=(0, 255)):
@@ -108,3 +110,24 @@ def convert_and_threshold(input_img, visu = False):
         plt.show()
 
     return combined_binary
+
+def save_binary_image(img, name_dir, img_name):
+    directory = '../test_images/' + name_dir
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    directory = directory + '/' + img_name
+    cv2.imwrite(directory, img.astype('uint8') * 255)
+
+def main():
+    '''
+    Read and visualize thresholding results
+    '''
+    images_names = glob.glob('../test_images/undistorted/test*.jpg')
+    destination_dir_name = "combined_binary"
+    for fname in images_names:
+        img = cv2.imread(fname)
+        combined_binary = convert_and_threshold(img, visu = False)
+        save_binary_image(combined_binary, destination_dir_name, ntpath.basename(fname))
+
+if __name__ == '__main__':
+    main()
