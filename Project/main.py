@@ -16,41 +16,14 @@ class Parameters():
         self.cam_mtx = None
         # distortion coefficients
         self.dist_coeff = None
-        # perspektive trabsformation matrix
-        self.M = np.empty()
-        self.Minv = np.empty()
 
 global_parameters = Parameters
 
 def preprocess():
     # 0. Calibrate camera
     global_parameters.cam_mtx, global_parameters.dist_coeff = camera_calibration.get_calib_parameters()
-    # 1. Get perpektive transformation matrix
-    global_parameters.M = get_perspective.get_perpective_matrix()
-    global_parameters.Minv = np.linalg.inv(global_parameters.M)
     return
 
-def visualize_polynomials(img_ref, combined_binary, left_fitx, right_fitx):
-
-    # Visualize
-    fig, ((ax1, ax2)) = plt.subplots(ncols=2, nrows=1, figsize=(20, 10))
-    ax1.set_title('Original image')
-    ax1.imshow(img_ref)
-
-    ploty = np.linspace(0, combined_binary.shape[0] - 1, combined_binary.shape[0])
-    ax2.plot(left_fitx, ploty, color='green')
-    ax2.plot(right_fitx, ploty, color='green')
-
-    lineThickness = 2
-    x = 50
-    cv2.line(combined_binary, (x, 0), (x, combined_binary.shape[0]), (0, 255, 0), lineThickness)
-
-    ax2.set_title('Transformed image')
-    ax2.imshow(combined_binary)
-
-    plt.show()
-
-    return
 
 def process_first_frame(distorted_img):
     img_size = (distorted_img.shape[1], distorted_img.shape[0])
@@ -67,27 +40,6 @@ def process_first_frame(distorted_img):
     # Plots the left and right polynomials on the lane lines
     visualize_polynomials(result, combined_binary, left_fitx, right_fitx)
     return combined_binary
-
-def transform_inverse(warped, distorted_img, left_fitx, right_fitx):
-    img_size = (distorted_img.shape[1], distorted_img.shape[0])
-    # Create an image to draw the lines on
-    warp_zero = np.zeros_like(warped).astype(np.uint8)
-    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-
-    # Recast the x and y points into usable format for cv2.fillPoly()
-    ploty = np.linspace(0, warped.shape[0] - 1, warped.shape[0])
-    pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
-    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
-    pts = np.hstack((pts_left, pts_right))
-
-    # Draw the lane onto the warped blank image
-    cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
-
-    # Warp the blank back to original image space using inverse perspective matrix (Minv)
-    newwarp = cv2.warpPerspective(color_warp, global_parameters.Minv, img_size, flags=cv2.INTER_LINEAR)
-    # Combine the result with the original image
-    result = cv2.addWeighted(distorted_img, 1, newwarp, 0.3, 0)
-    return result
 
 
 def test_on_test_images(save_intermediate = False, name_dir = ''):

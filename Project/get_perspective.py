@@ -7,26 +7,27 @@ import matplotlib.pyplot as plt
 
 
 class ParamsStruct():
-    def __init__(self, count=0, window_name="", img=None, points=[]):
+    def __init__(self, count=0, window_name="", img=None, points=[], draw_help_lines = True):
         self.count = count
         self.window_name = window_name
         self.img = img
         self.points = points
+        self.draw_help_lines = draw_help_lines
 
 
 def mouseCB(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDBLCLK or event == cv2.EVENT_LBUTTONDOWN:
         cv2.circle(param.img, (x, y), 3, (0, 0, 255), 3)  # BGR
-        if param.count == 0:
+        if param.count == 0 and param.draw_help_lines == True:
             cv2.line(param.img, (x, y), (param.img.shape[1], y), (0, 0, 255), 3)
-        if param.count == 2:
+        if param.count == 2 and param.draw_help_lines == True:
             cv2.line(param.img, (0, y), (x, y), (0, 0, 255), 3)
         param.count += 1
         param.points.append([x, y])
         cv2.imshow(param.window_name, param.img)
 
 
-def choose_points(img_input):
+def choose_points(img_input, draw_help_lines = True):
     """
     Choose four input points for calculation matrix
     for perspective transformation and then press 'q'
@@ -42,7 +43,7 @@ def choose_points(img_input):
     copy_img = img_input.copy()
     window_name = "Choose source points"
     points = []
-    param = ParamsStruct(0, window_name, copy_img, points)
+    param = ParamsStruct(0, window_name, copy_img, points, draw_help_lines)
     cv2.namedWindow(window_name)
     cv2.imshow(window_name, copy_img)
     cv2.setMouseCallback(window_name, mouseCB, param)
@@ -97,39 +98,54 @@ def plot_mask_on_image(src_img, points_list):
     return masked_img
 
 
-def set_destination_points(input_img, offset_x=50, offset_y=400):
-    [x, y, z] = input_img.shape
+def set_destination_points(input_img, offset_x=300, offset_y=0):
+    [height, width, z] = input_img.shape
     dst = np.float32(
-        [[offset_x, offset_y], [x - offset_x, offset_y], [x - offset_x, y], [offset_x, y]])
+        [[offset_x, offset_y], [width - offset_x, offset_y], [width - offset_x, height-offset_y], [offset_x, height-offset_y]])
     return dst
 
 
-def get_perpective_matrix():
-    M = np.array([[-3.80405332e-01, -8.38842527e-01, 5.90145226e+02],
-                  [1.28097845e-15, -3.14186626e+00, 1.39438821e+03],
-                  [9.66453255e-19, -2.33011813e-03, 1.00000000e+00]])
-    return M
+def region_of_interest(img, vertices):
+    """
+    Applies an image mask.
 
+    Only keeps the region of the image defined by the polygon
+    formed from `vertices`. The rest of the image is set to black.
+    `vertices` should be a numpy array of integer points.
+    """
+    # defining a blank mask to start with
+    mask = np.zeros_like(img)
 
-def get_perpective_matrix_for_strong_curved():
-    M = np.array([[-5.16084489e-01, -8.34969471e-01, 6.02817752e+02],
-                  [0.00000000e+00, -4.26114911e+00, 2.18963084e+03],
-                  [8.61287813e-19, -2.31935964e-03, 1.00000000e+00]])
-    return M
-
-
-def calculate_perpective_matrix(input_img, calculate_matrix=False):
-    if calculate_matrix == True:
-        points = choose_points(input_img)
-        src, points_list = align_manually_chosen_points(points)
-        result = plot_mask_on_image(input_img, points_list)
-        dst = set_destination_points(input_img)
-        M = cv2.getPerspectiveTransform(src, dst)
-        print(M)
+    # defining a 3 channel or 1 channel color to fill the mask with depending on the input image
+    if len(img.shape) > 2:
+        channel_count = img.shape[2]  # i.e. 3 or 4 depending on your image
+        ignore_mask_color = (255,) * channel_count
     else:
-        M = get_perpective_matrix()
-        result = input_img
-    return M, result
+        ignore_mask_color = 255
+
+    # filling pixels inside the polygon defined by "vertices" with the fill color
+    cv2.fillPoly(mask, vertices, ignore_mask_color)
+
+    # returning the image only where mask pixels are nonzero
+    masked_image = cv2.bitwise_and(img, mask)
+    return masked_image
+
+def mask_image(input_img):
+    masked_img = np.copy(input_img)
+    mask_points = choose_points(input_img, draw_help_lines = False)
+    vertices_mask = np.array([mask_points], dtype=np.int32)
+    masked_img = region_of_interest(input_img, vertices_mask)
+    return masked_img
+
+
+def calculate_perpective_matrix(input_img):
+    points = choose_points(input_img)
+    src, points_list = align_manually_chosen_points(points)
+    result = plot_mask_on_image(input_img, points_list)
+    dst = set_destination_points(input_img)
+    M = cv2.getPerspectiveTransform(src, dst)
+    Minv = cv2.getPerspectiveTransform(dst,src)
+    return M, Minv, result
 
 
 def visualize(img_ref, warped):
@@ -151,18 +167,21 @@ def visualize(img_ref, warped):
     return
 
 
-def save_binary_image(img, name_dir, img_name):
+def save_binary_image(img, M, Minv, name_dir, img_name):
     directory = '../test_images/' + name_dir
     if not os.path.exists(directory):
         os.makedirs(directory)
     img_name_no_ext = os.path.splitext(img_name)[0]
-    directory = directory + '/' + img_name_no_ext + '.npy'
-    np.save(directory, img)
+    directory_img = directory + '/' + img_name_no_ext + '.npy'
+    directory_M = directory + '/M_' + img_name_no_ext + '.npy'
+    directory_M_inv = directory + '/Minv_' + img_name_no_ext + '.npy'
+    np.save(directory_img, img)
+    np.save(directory_M, M)
+    np.save(directory_M_inv, Minv)
 
 
 def load_and_visu_stored_arrays():
     arrays_names = glob.glob('../test_images/warped/test*.npy')
-    destination_dir_name = "warped"
     for fname in arrays_names:
         img = np.load(fname)
         plt.imshow(img)
@@ -176,11 +195,12 @@ def main():
         destination_dir_name = "warped"
         for fname in images_names:
             img = cv2.imread(fname)
-            M, masked_img = calculate_perpective_matrix(img, calculate_matrix=True)
-            img_size = (img.shape[1], img.shape[0])
-            warped = cv2.warpPerspective(img, M, img_size, flags=cv2.INTER_LINEAR)
-            visualize(masked_img, warped)
-            save_binary_image(warped, destination_dir_name, ntpath.basename(fname))
+            M, Minv, img_with_marked_area = calculate_perpective_matrix(img)
+            masked_img = mask_image(img)
+            img_size = (masked_img.shape[1], masked_img.shape[0])
+            warped = cv2.warpPerspective(masked_img, M, img_size, flags=cv2.INTER_LINEAR)
+            visualize(img_with_marked_area, warped)
+            save_binary_image(warped, M, Minv, destination_dir_name, ntpath.basename(fname))
     else:
         load_and_visu_stored_arrays()
 
