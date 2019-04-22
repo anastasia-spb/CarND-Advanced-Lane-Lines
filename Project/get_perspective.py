@@ -189,7 +189,7 @@ def load_and_visu_stored_arrays():
 
 
 def main():
-    show_results = True
+    show_results = False
     if show_results == False:
         images_names = glob.glob('../test_images/combined_binary/test*.jpg')
         destination_dir_name = "warped"
@@ -199,8 +199,8 @@ def main():
             masked_img = mask_image(img)
             img_size = (masked_img.shape[1], masked_img.shape[0])
             warped = cv2.warpPerspective(masked_img, M, img_size, flags=cv2.INTER_LINEAR)
-            visualize(img_with_marked_area, warped)
             save_binary_image(warped, M, Minv, destination_dir_name, ntpath.basename(fname))
+            visualize(img_with_marked_area, warped)
     else:
         load_and_visu_stored_arrays()
 

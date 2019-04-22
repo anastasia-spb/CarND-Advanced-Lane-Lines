@@ -2,15 +2,45 @@ import numpy as np
 import cv2
 import glob
 import matplotlib.pyplot as plt
+import find_lane_pixels_convolution
 
-def find_lane_pixels(binary_warped):
+
+def find_good_indexis_in_window(out_img, window_idx, nonzerox, nonzeroy, window_height, current_pos, margin=100,
+                                visu=False):
+    '''
+    Calculate good (==nonzero) indices inside sliding window defined by input parameters
+    :param out_img: binary image the same shape as input wrapped image on which result will be visualized if visu parameter set to True
+    :param window_idx: current idx of window for y position calculation
+    :param nonzerox: x indices of the elements that are non-zero
+    :param nonzeroy: y indices of the elements that are non-zero
+    :param window_height: height of the sliding window
+    :param current_pos: current x position
+    :param margin: width of the windows +/- margin
+    :param visu: draw sliding window onto out_img
+    :return: nonzero  indices inside sliding window
+    '''
+    # Identify window boundaries in x and y
+    height = out_img.shape[0]
+    win_y_low = height - (window_idx + 1) * window_height
+    win_y_high = height - window_idx * window_height
+    win_x_low = current_pos - margin
+    win_x_high = current_pos + margin
+
+    if visu == True:
+        # Draw the windows on the visualization image
+        cv2.rectangle(out_img, (win_x_low, win_y_low), (win_x_high, win_y_high), (0, 255, 0), 2)
+
+    # Identify the nonzero pixels in x and y within the window #
+    good_inds = \
+    ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_low) & (nonzerox < win_x_high)).nonzero()[0]
+
+    return good_inds, out_img
+
+
+def find_lane_pixels(binary_warped, visu=False):
     # Take a histogram of the bottom half of the image
     binary_filtered, histogram = get_hist(binary_warped)
-    plt.plot(histogram)
-    plt.show()
-    #userNumber = input('Give me midpoint: ')
-    #midpoint = int(userNumber)
-    midpoint = 700
+    midpoint = np.int(histogram.shape[0] // 2)
     # Find the peak of the left and right halves of the histogram
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
@@ -37,21 +67,20 @@ def find_lane_pixels(binary_warped):
     left_lane_inds = []
     right_lane_inds = []
 
-    # Step through the windows one by one
-    for window in range(nwindows):
-        # Identify window boundaries in x and y (and right and left)
-        win_y_low = binary_filtered.shape[0] - (window + 1) * window_height
-        win_y_high = binary_filtered.shape[0] - window * window_height
-        win_xleft_low = leftx_current - margin
-        win_xleft_high = leftx_current + margin
-        win_xright_low = rightx_current - margin
-        win_xright_high = rightx_current + margin
+    if visu == True:
+        # Create an output image to draw on and visualize the result
+        out_img = np.dstack((binary_warped * 255, binary_warped * 255, binary_warped * 255))
+    else:
+        out_img = binary_warped
 
-        # Identify the nonzero pixels in x and y within the window #
-        good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) &
-                          (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
-        good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) &
-                           (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
+    # Step through the windows one by one
+    for window_idx in range(nwindows):
+
+        # Identify window boundaries in x and y (and right and left)
+        good_left_inds, out_img = find_good_indexis_in_window(out_img, window_idx, nonzerox, nonzeroy, window_height,
+                                                              leftx_current, margin, visu)
+        good_right_inds, out_img = find_good_indexis_in_window(out_img, window_idx, nonzerox, nonzeroy, window_height,
+                                                               rightx_current, margin, visu)
 
         # Append these indices to the lists
         left_lane_inds.append(good_left_inds)
@@ -77,53 +106,52 @@ def find_lane_pixels(binary_warped):
     rightx = nonzerox[right_lane_inds]
     righty = nonzeroy[right_lane_inds]
 
-    return leftx, lefty, rightx, righty
+    return leftx, lefty, rightx, righty, out_img
 
-def fit_polynomial(binary_warped):
-   # Find our lane pixels first
-    leftx, lefty, rightx, righty = find_lane_pixels(binary_warped)
 
+def calculate_polynomial_coefficients(binary_warped, lefty, leftx, righty, rightx, ym_per_pix = 1, xm_per_pix = 1):
     # Fit a second order polynomial to each using `np.polyfit`
+    left_fit_cr = np.polyfit(lefty*ym_per_pix, leftx*xm_per_pix, 2)
+    right_fit_cr = np.polyfit(righty*ym_per_pix, rightx*xm_per_pix, 2)
+
     left_fit = np.polyfit(lefty, leftx, 2)
     right_fit = np.polyfit(righty, rightx, 2)
 
     # Generate x and y values for plotting
-    ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
+    ploty = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
     try:
-        left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-        right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+        left_fitx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
+        right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
     except TypeError:
         # Avoids an error if `left` and `right_fit` are still none or incorrect
         print('The function failed to fit a line!')
-        left_fitx = 1*ploty**2 + 1*ploty
-        right_fitx = 1*ploty**2 + 1*ploty
+        left_fitx = 1 * ploty ** 2 + 1 * ploty
+        right_fitx = 1 * ploty ** 2 + 1 * ploty
+    return left_fitx, right_fitx, left_fit, right_fit, left_fit_cr, right_fit_cr
 
-    return left_fitx, right_fitx, left_fit, right_fit
+def fit_polynomial(binary_warped, visu=False):
+    # Find our lane pixels first
+    leftx, lefty, rightx, righty, out_img = find_lane_pixels(binary_warped, visu)
+    # uncomment the function below and comment the find_lane_pixels function to see result of convolution approach instead
+    # leftx, lefty, rightx, righty, out_img = find_lane_pixels_convolution.find_lane_pixels_convolution(binary_warped)
 
+    left_fitx, right_fitx, left_fit, right_fit, left_fit_cr, right_fit_cr = calculate_polynomial_coefficients(binary_warped, lefty, leftx, righty, rightx)
 
-def filter_hist(histogram, thresh = 150, max_len = 200):
-    count = 0
-    start = 0
-    stop = 0
-    result_array = np.array([], dtype='int')
-    for i in range(histogram.size):
-        if histogram[i] > thresh:
-            if count == 0:
-                start = i
-            count += 1
-            if i == (histogram.size - 1) and count > 0:
-                stop = start + count
-                if count > max_len:
-                    arr = np.arange(start, stop, 1, dtype='int')
-                    result_array = np.append(result_array, arr)
-            continue
-        elif count > 0:
-            stop = start + count
-            if count > max_len:
-                arr = np.arange(start, stop, 1, dtype='int')
-                result_array = np.append(result_array, arr)
-            count = 0
-    return result_array
+    ## Visualization ##
+    # Colors in the left and right lane regions
+    if visu == True:
+        # visu wrapped image with sliding windows (result from find_lane_pixels)
+        plt.imshow(out_img.astype(np.uint8))
+        plt.show()
+
+        out_img = np.dstack((binary_warped * 255, binary_warped * 255, binary_warped * 255))
+
+        out_img[lefty, leftx] = [255, 0, 0]
+        out_img[righty, rightx] = [0, 0, 255]
+
+        return left_fitx, right_fitx, left_fit, right_fit, out_img
+
+    return left_fitx, right_fitx, left_fit, right_fit, binary_warped
 
 
 def visu_histogram(binary_warped):
@@ -134,7 +162,6 @@ def visu_histogram(binary_warped):
     ax1.set_title('Binary warped image')
     ax1.imshow(binary_filtered)
 
-
     ax2.set_title('Histogram')
     ax2.plot(histogram)
 
@@ -142,19 +169,14 @@ def visu_histogram(binary_warped):
 
     return
 
+
 def get_hist(binary_warped):
     [height, width] = binary_warped.shape
-    histogram = np.sum(binary_warped[height//2:height,:], axis=0)
-    noise = filter_hist(histogram)
-    histogram[noise] = 0
-    binary_filtered = np.copy(binary_warped)
-    binary_filtered[:,noise] = 0
-
-    return binary_filtered, histogram
+    histogram = np.sum(binary_warped[height // 2:height, :], axis=0)
+    return binary_warped, histogram
 
 
 def visualize_polynomials(img_ref, combined_binary, left_fitx, right_fitx):
-
     # Visualize
     fig, ((ax1, ax2)) = plt.subplots(ncols=2, nrows=1, figsize=(20, 10))
     ax1.set_title('Original image')
@@ -164,12 +186,8 @@ def visualize_polynomials(img_ref, combined_binary, left_fitx, right_fitx):
     ax2.plot(left_fitx, ploty, color='green')
     ax2.plot(right_fitx, ploty, color='green')
 
-    lineThickness = 2
-    x = 50
-    cv2.line(combined_binary, (x, 0), (x, combined_binary.shape[0]), (0, 255, 0), lineThickness)
-
     ax2.set_title('Transformed image')
-    ax2.imshow(combined_binary)
+    ax2.imshow(combined_binary.astype(np.uint8))
 
     plt.show()
 
@@ -198,7 +216,7 @@ def transform_inverse(warped, distorted_img, left_fitx, right_fitx, mat_inv):
     return result
 
 
-def find_lane_pixels_main():
+def find_lane_pixels_test():
     arrays_names = glob.glob('../test_images/warped/test*.npy')
     images_names = glob.glob('../test_images/test*.jpg')
     mat_names = glob.glob('../test_images/warped/M_test*.npy')
@@ -208,20 +226,27 @@ def find_lane_pixels_main():
         img_undist = cv2.imread(img_name)
         mat = np.load(mat_name)
         mat_inv = np.load(mat_inv_name)
-        img_bin = img_bin_orig[:,:,0] / 255
-        left_fitx, right_fitx, left_fit, right_fit = fit_polynomial(img_bin)
+        img_bin = img_bin_orig[:, :, 0] / 255
+        left_fitx, right_fitx, left_fit, right_fit, binary_lanes = fit_polynomial(img_bin, visu=True)
         # 4. Transform back
         result = transform_inverse(img_bin, img_undist, left_fitx, right_fitx, mat_inv)
         # Plots the left and right polynomials on the lane lines
-        visualize_polynomials(result, img_bin, left_fitx, right_fitx)
+        visualize_polynomials(result, binary_lanes, left_fitx, right_fitx)
+
 
 def test_histogram():
+    '''
+    Calculate and visualize histograms calculated on images from the previous step
+    :return:
+    '''
     arrays_names = glob.glob('../test_images/warped/test*.npy')
     for fname in arrays_names:
         img = np.load(fname)
-        img_bin = img[:,:,0] / 255
+        img_bin = img[:, :, 0] / 255
         visu_histogram(img_bin)
 
+
 if __name__ == '__main__':
-    #test_histogram()
-    find_lane_pixels_main()
+    # uncomment function below to see histograms
+    # test_histogram()
+    find_lane_pixels_test()
