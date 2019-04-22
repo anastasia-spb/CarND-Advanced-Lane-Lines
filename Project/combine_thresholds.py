@@ -66,6 +66,10 @@ def get_V_channel_Luv(img_rgb):
 
 
 def convert_and_threshold(input_img, visu = False):
+    '''
+    Pipeline for combining thresholds for Sobel and magnitude
+    applied on grayscale and S channel (hls colour space) images
+    '''
     # 0. Get S channel from input image
     s_channel_img = get_S_channel(input_img)
 

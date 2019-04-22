@@ -14,6 +14,9 @@ def window_mask(width, height, img_ref, center, level):
 
 
 def find_window_centroids(image, window_width=50, window_height=80, margin=100):
+    '''
+    Find center of windows which have the maximum convolution result in each horizontal level
+    '''
     window_centroids = []  # Store the (left,right) window centroid positions per level
     window = np.ones(window_width)  # Create our window template that we will use for convolutions
 
@@ -53,6 +56,10 @@ def find_window_centroids(image, window_width=50, window_height=80, margin=100):
 
 
 def return_lane_pixels(warped, window_centroids, window_width=50, window_height=80):
+    '''
+    Return only pixels of lanes from window_centroids for further
+    calculation of polynomial coefficients
+    '''
     left_lane_inds_x = []
     left_lane_inds_y = []
     right_lane_inds_x = []

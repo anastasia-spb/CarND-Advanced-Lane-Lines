@@ -32,12 +32,18 @@ def find_good_indexis_in_window(out_img, window_idx, nonzerox, nonzeroy, window_
 
     # Identify the nonzero pixels in x and y within the window #
     good_inds = \
-    ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_low) & (nonzerox < win_x_high)).nonzero()[0]
+        ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_low) & (
+        nonzerox < win_x_high)).nonzero()[0]
 
     return good_inds, out_img
 
 
 def find_lane_pixels(binary_warped, visu=False):
+    '''
+    find lane lines pixels using histogram results
+    as starting point and then looking for nonzero points
+    in each sliding window
+    '''
     # Take a histogram of the bottom half of the image
     binary_filtered, histogram = get_hist(binary_warped)
     midpoint = np.int(histogram.shape[0] // 2)
@@ -109,10 +115,13 @@ def find_lane_pixels(binary_warped, visu=False):
     return leftx, lefty, rightx, righty, out_img
 
 
-def calculate_polynomial_coefficients(binary_warped, lefty, leftx, righty, rightx, ym_per_pix = 1, xm_per_pix = 1):
+def calculate_polynomial_coefficients(binary_warped, lefty, leftx, righty, rightx, ym_per_pix=1, xm_per_pix=1):
+    '''
+    return polynomial coefficient in pixels and meters (real world)
+    '''
     # Fit a second order polynomial to each using `np.polyfit`
-    left_fit_cr = np.polyfit(lefty*ym_per_pix, leftx*xm_per_pix, 2)
-    right_fit_cr = np.polyfit(righty*ym_per_pix, rightx*xm_per_pix, 2)
+    left_fit_cr = np.polyfit(lefty * ym_per_pix, leftx * xm_per_pix, 2)
+    right_fit_cr = np.polyfit(righty * ym_per_pix, rightx * xm_per_pix, 2)
 
     left_fit = np.polyfit(lefty, leftx, 2)
     right_fit = np.polyfit(righty, rightx, 2)
@@ -129,13 +138,18 @@ def calculate_polynomial_coefficients(binary_warped, lefty, leftx, righty, right
         right_fitx = 1 * ploty ** 2 + 1 * ploty
     return left_fitx, right_fitx, left_fit, right_fit, left_fit_cr, right_fit_cr
 
+
 def fit_polynomial(binary_warped, visu=False):
+    '''
+    pipeline for finding lane pixels onto binary wrapped image
+    '''
     # Find our lane pixels first
     leftx, lefty, rightx, righty, out_img = find_lane_pixels(binary_warped, visu)
     # uncomment the function below and comment the find_lane_pixels function to see result of convolution approach instead
     # leftx, lefty, rightx, righty, out_img = find_lane_pixels_convolution.find_lane_pixels_convolution(binary_warped)
 
-    left_fitx, right_fitx, left_fit, right_fit, left_fit_cr, right_fit_cr = calculate_polynomial_coefficients(binary_warped, lefty, leftx, righty, rightx)
+    left_fitx, right_fitx, left_fit, right_fit, left_fit_cr, right_fit_cr = calculate_polynomial_coefficients(
+        binary_warped, lefty, leftx, righty, rightx)
 
     ## Visualization ##
     # Colors in the left and right lane regions
@@ -155,6 +169,9 @@ def fit_polynomial(binary_warped, visu=False):
 
 
 def visu_histogram(binary_warped):
+    '''
+    plot histogram
+    '''
     binary_filtered, histogram = get_hist(binary_warped)
 
     # Visualize
@@ -171,6 +188,9 @@ def visu_histogram(binary_warped):
 
 
 def get_hist(binary_warped):
+    '''
+     calculate histogram
+     '''
     [height, width] = binary_warped.shape
     histogram = np.sum(binary_warped[height // 2:height, :], axis=0)
     return binary_warped, histogram
@@ -195,6 +215,10 @@ def visualize_polynomials(img_ref, combined_binary, left_fitx, right_fitx):
 
 
 def transform_inverse(warped, distorted_img, left_fitx, right_fitx, mat_inv):
+    '''
+     Apply inverse transformation on lane pixels and draw resulting polygon on
+     original image
+     '''
     img_size = (distorted_img.shape[1], distorted_img.shape[0])
     # Create an image to draw the lines on
     warp_zero = np.zeros_like(warped).astype(np.uint8)
@@ -217,6 +241,9 @@ def transform_inverse(warped, distorted_img, left_fitx, right_fitx, mat_inv):
 
 
 def find_lane_pixels_test():
+    '''
+    This is test function. Reads intermediate results stored at the previous step.
+    '''
     arrays_names = glob.glob('../test_images/warped/test*.npy')
     images_names = glob.glob('../test_images/test*.jpg')
     mat_names = glob.glob('../test_images/warped/M_test*.npy')

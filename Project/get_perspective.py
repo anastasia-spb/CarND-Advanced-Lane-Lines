@@ -16,6 +16,9 @@ class ParamsStruct():
 
 
 def mouseCB(event, x, y, flags, param):
+    '''
+    Function which is called when event inside window happens
+    '''
     if event == cv2.EVENT_LBUTTONDBLCLK or event == cv2.EVENT_LBUTTONDOWN:
         cv2.circle(param.img, (x, y), 3, (0, 0, 255), 3)  # BGR
         if param.count == 0 and param.draw_help_lines == True:
@@ -58,6 +61,9 @@ def choose_points(img_input, draw_help_lines = True):
 
 
 def align_manually_chosen_points(points, offset_top=0, offset_bottom=0):
+    '''
+    Correct chosen source point so they will form trapezium
+    '''
     # We suppose that lines are parallel
     points_list = []
     dist = points[0][0] - points[3][0]
@@ -83,6 +89,9 @@ def align_manually_chosen_points(points, offset_top=0, offset_bottom=0):
 
 
 def roi(img, vertices):
+    '''
+    Set to zero all pixels which are not in ROI
+    '''
     # blank mask
     mask = np.zeros_like(img)
     # filling pixels inside the polygon defined by vertices with the fill color
@@ -93,12 +102,18 @@ def roi(img, vertices):
 
 
 def plot_mask_on_image(src_img, points_list):
+    '''
+    Set to zero all pixels which are not in ROI
+    '''
     vertices = np.array([points_list], dtype=np.int32)
     masked_img = roi(src_img, vertices)
     return masked_img
 
 
 def set_destination_points(input_img, offset_x=300, offset_y=0):
+    '''
+    Choose destination source points for perspective transformation
+    '''
     [height, width, z] = input_img.shape
     dst = np.float32(
         [[offset_x, offset_y], [width - offset_x, offset_y], [width - offset_x, height-offset_y], [offset_x, height-offset_y]])
@@ -139,6 +154,9 @@ def mask_image(input_img):
 
 
 def calculate_perpective_matrix(input_img):
+    '''
+    Pipeline for perspective transformation step
+    '''
     points = choose_points(input_img)
     src, points_list = align_manually_chosen_points(points)
     result = plot_mask_on_image(input_img, points_list)

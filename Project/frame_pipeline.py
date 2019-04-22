@@ -10,6 +10,9 @@ import get_perspective
 
 
 def mask_image(input_img, mask_points):
+    '''
+    Mask all pixels which are not inside ROI
+    '''
     vertices_mask = np.array([mask_points], dtype=np.int32)
     masked_img = get_perspective.region_of_interest(input_img, vertices_mask)
     return masked_img
@@ -50,6 +53,10 @@ def frame_pipeline(orig_img, M, Minv, cam_mtx, dist_coeff, mask_points, if_first
 
 
 def first_frame_pipeline(orig_img, cam_mtx, dist_coeff):
+    '''
+    For the first frame choose points for calculating perpective matrix
+    and ROI points
+    '''
     # 0. Undistort image
     img_undist = cv2.undistort(orig_img, cam_mtx, dist_coeff, None, cam_mtx)
     #1. Choose src and roi points

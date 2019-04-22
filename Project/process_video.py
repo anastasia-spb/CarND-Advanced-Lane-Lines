@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 import frame_pipeline
 
 def process_video(video_full_name, cam_mtx, dist_coeff, output_video_name = "resulting_video.avi"):
+    '''
+    Process input video frame by frame
+    '''
     frames = []
     is_first = True
     M = np.array([])
