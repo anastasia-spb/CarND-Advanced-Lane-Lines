@@ -30,7 +30,7 @@ def get_deviation_from_center(ploty, left_fit, right_fit, ym_per_pix=30 / 720, x
     right = np.polyval(right_fit, y_eval * ym_per_pix)
     # the point from which we calculate deviation
     middle = (len(ploty) / 2) * xm_per_pix
-    deviation = middle - (left + right) / 2
+    deviation = middle - left
 
     return deviation
 

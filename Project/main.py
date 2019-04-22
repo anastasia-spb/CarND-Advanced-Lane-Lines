@@ -26,9 +26,9 @@ def test_on_test_images():
         plt.show()
 
 def test_process_video():
-    video_full_name = "../project_video.mp4"
+    video_full_name = "../videos/project_video.mp4" # contains 138 frames
     cam_mtx, dist_coeff = camera_calibration.get_calib_parameters()
-    process_video.process_video(video_full_name, cam_mtx, dist_coeff)
+    process_video.process_video(video_full_name, cam_mtx, dist_coeff, output_video_name = "resulting_video.avi")
 
 if __name__ == '__main__':
     #test_on_test_images()
