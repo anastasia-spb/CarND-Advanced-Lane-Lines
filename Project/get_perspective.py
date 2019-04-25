@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 
 class ParamsStruct():
-    def __init__(self, count=0, window_name="", img=None, points=[], draw_help_lines = True):
+    def __init__(self, count=0, window_name="", img=None, points=[], draw_help_lines=True):
         self.count = count
         self.window_name = window_name
         self.img = img
@@ -30,7 +30,7 @@ def mouseCB(event, x, y, flags, param):
         cv2.imshow(param.window_name, param.img)
 
 
-def choose_points(img_input, draw_help_lines = True):
+def choose_points(img_input, draw_help_lines=True):
     """
     Choose four input points for calculation matrix
     for perspective transformation and then press 'q'
@@ -116,11 +116,12 @@ def set_destination_points(input_img, offset_x=300, offset_y=0):
     '''
     [height, width, z] = input_img.shape
     dst = np.float32(
-        [[offset_x, offset_y], [width - offset_x, offset_y], [width - offset_x, height-offset_y], [offset_x, height-offset_y]])
+        [[offset_x, offset_y], [width - offset_x, offset_y], [width - offset_x, height - offset_y],
+         [offset_x, height - offset_y]])
     return dst
 
 
-def region_of_interest(img, vertices):
+def region_of_interest(img, vertices, inside=False):
     """
     Applies an image mask.
 
@@ -142,14 +143,18 @@ def region_of_interest(img, vertices):
     cv2.fillPoly(mask, vertices, ignore_mask_color)
 
     # returning the image only where mask pixels are nonzero
-    masked_image = cv2.bitwise_and(img, mask)
+    if inside == False:
+        masked_image = cv2.bitwise_and(img, mask)
+    else:
+        masked_image = cv2.bitwise_and(img, ~mask)
     return masked_image
 
-def mask_image(input_img):
+
+def mask_image(input_img, inside):
     masked_img = np.copy(input_img)
-    mask_points = choose_points(input_img, draw_help_lines = False)
+    mask_points = choose_points(input_img, draw_help_lines=False)
     vertices_mask = np.array([mask_points], dtype=np.int32)
-    masked_img = region_of_interest(input_img, vertices_mask)
+    masked_img = region_of_interest(input_img, vertices_mask, inside)
     return masked_img
 
 
@@ -162,7 +167,7 @@ def calculate_perpective_matrix(input_img):
     result = plot_mask_on_image(input_img, points_list)
     dst = set_destination_points(input_img)
     M = cv2.getPerspectiveTransform(src, dst)
-    Minv = cv2.getPerspectiveTransform(dst,src)
+    Minv = cv2.getPerspectiveTransform(dst, src)
     return M, Minv, result
 
 
@@ -214,9 +219,10 @@ def main():
         for fname in images_names:
             img = cv2.imread(fname)
             M, Minv, img_with_marked_area = calculate_perpective_matrix(img)
-            masked_img = mask_image(img)
-            img_size = (masked_img.shape[1], masked_img.shape[0])
-            warped = cv2.warpPerspective(masked_img, M, img_size, flags=cv2.INTER_LINEAR)
+            masked_img = mask_image(img, inside=False)  # mask outside regions
+            masked_img_inside = mask_image(masked_img, inside=True)  # mask inner region
+            img_size = (masked_img_inside.shape[1], masked_img_inside.shape[0])
+            warped = cv2.warpPerspective(masked_img_inside, M, img_size, flags=cv2.INTER_LINEAR)
             save_binary_image(warped, M, Minv, destination_dir_name, ntpath.basename(fname))
             visualize(img_with_marked_area, warped)
     else:

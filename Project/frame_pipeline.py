@@ -9,15 +9,15 @@ import calculate_curvation
 import get_perspective
 
 
-def mask_image(input_img, mask_points):
+def mask_image(input_img, mask_points, inside):
     '''
     Mask all pixels which are not inside ROI
     '''
     vertices_mask = np.array([mask_points], dtype=np.int32)
-    masked_img = get_perspective.region_of_interest(input_img, vertices_mask)
+    masked_img = get_perspective.region_of_interest(input_img, vertices_mask, inside)
     return masked_img
 
-def frame_pipeline(orig_img, M, Minv, cam_mtx, dist_coeff, mask_points, if_first = False):
+def frame_pipeline(orig_img, M, Minv, cam_mtx, dist_coeff, mask_points, mask_points_inside, method = "histogram"):
     '''
     Implements line searching pipeline
     :param orig_img:
@@ -29,13 +29,18 @@ def frame_pipeline(orig_img, M, Minv, cam_mtx, dist_coeff, mask_points, if_first
     # 0. Undistort image
     img_undist = cv2.undistort(orig_img, cam_mtx, dist_coeff, None, cam_mtx)
     # 1. Combine results of Sobel and magnitude thresholds for grayscale and s channel (hls)
-    combined_binary = combine_thresholds.convert_and_threshold(img_undist, visu = False)
+    thresholds = combine_thresholds.Thresholds()
+    combined_binary = combine_thresholds.convert_and_threshold(img_undist, thresholds, visu = False)
     # 2. Wrap combined binary
-    combined_binary_masked = mask_image(combined_binary, mask_points)
+    combined_binary_masked = mask_image(combined_binary, mask_points, False) # mask outside regions
+    combined_binary_masked = mask_image(combined_binary_masked, mask_points_inside, True)  # mask inner region
     img_size = (combined_binary_masked.shape[1], combined_binary_masked.shape[0])
     binary_warped = cv2.warpPerspective(combined_binary_masked, M, img_size, flags=cv2.INTER_LINEAR)
     # 3. Find lane pixels
-    leftx, lefty, rightx, righty, out_img = find_lane_pixels_convolution.find_lane_pixels_convolution(binary_warped)
+    if(method == "convolution"):
+        leftx, lefty, rightx, righty, out_img = find_lane_pixels_convolution.find_lane_pixels_convolution(binary_warped)
+    else: # method == "histogram"
+        leftx, lefty, rightx, righty, out_img = find_lane_pixels.find_lane_pixels(binary_warped)
     # 4. Calculate polynomial coefficients
     ym_per_pix = 30 / 720  # meters per pixel in y dimension
     xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
@@ -62,9 +67,10 @@ def first_frame_pipeline(orig_img, cam_mtx, dist_coeff):
     #1. Choose src and roi points
     M, Minv, img_with_marked_area = get_perspective.calculate_perpective_matrix(img_undist)
     mask_points = get_perspective.choose_points(img_undist, draw_help_lines=False)
+    mask_points_inside = get_perspective.choose_points(img_undist, draw_help_lines=False)
     #2. Continue the same pipeline as for the rest of frames
-    result = frame_pipeline(orig_img, M, Minv, cam_mtx, dist_coeff, mask_points)
-    return M, Minv, mask_points, result
+    result = frame_pipeline(orig_img, M, Minv, cam_mtx, dist_coeff, mask_points, mask_points_inside)
+    return M, Minv, mask_points, mask_points_inside, result
 
 
 

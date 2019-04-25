@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 
 
 class Thresholds:
-    def __init__(self, grayscale_abs_bottom=20, grayscale_abs_upper=100,
-                 grayscale_magnitude_bottom=20, grayscale_magnitude_upper=100,
-                 channel_abs_bottom=50, channel_abs_upper=100,
-                 channel_magnitude_bottom=30, channel_magnitude_upper=100):
+    def __init__(self, grayscale_abs_bottom=20, grayscale_abs_upper=60,
+                 grayscale_magnitude_bottom=70, grayscale_magnitude_upper=100,
+                 channel_abs_bottom=35, channel_abs_upper=50,
+                 channel_magnitude_bottom=60, channel_magnitude_upper=70):
         self.grayscale_abs_bottom = grayscale_abs_bottom
         self.grayscale_abs_upper = grayscale_abs_upper
         self.grayscale_magnitude_bottom = grayscale_magnitude_bottom
@@ -56,14 +56,14 @@ def choose_threshold_value(input_img):
     combined_binary = convert_and_threshold(input_img, current_thresholds, visu=False)
 
     # create trackbars for threshold change
-    cv2.createTrackbar('GRAY Abs B', trackbars_window_name, 10, 150, current_thresholds.set_GRAY_abs_bottom)
-    cv2.createTrackbar('GRAY Abs U', trackbars_window_name, 10, 150, current_thresholds.set_channel_abs_upper)
-    cv2.createTrackbar('GRAY Mag B', trackbars_window_name, 10, 150, current_thresholds.set_GRAY_magnitude_bottom)
-    cv2.createTrackbar('GRAY Mag U', trackbars_window_name, 10, 150, current_thresholds.set_GRAY_magnitude_upper)
-    cv2.createTrackbar('Ch Abs B', trackbars_window_name, 10, 150, current_thresholds.set_channel_abs_bottom)
-    cv2.createTrackbar('Ch Abs U', trackbars_window_name, 10, 150, current_thresholds.set_channel_abs_upper)
-    cv2.createTrackbar('Ch Mag B', trackbars_window_name, 10, 150, current_thresholds.set_channel_magnitude_bottom)
-    cv2.createTrackbar('Ch Mag U', trackbars_window_name, 10, 150, current_thresholds.set_channel_magnitude_upper)
+    cv2.createTrackbar('GRAY Abs B', trackbars_window_name, current_thresholds.grayscale_abs_bottom, 150, current_thresholds.set_GRAY_abs_bottom)
+    cv2.createTrackbar('GRAY Abs U', trackbars_window_name, current_thresholds.grayscale_abs_upper, 150, current_thresholds.set_GRAY_abs_upper)
+    cv2.createTrackbar('GRAY Mag B', trackbars_window_name, current_thresholds.grayscale_magnitude_bottom, 150, current_thresholds.set_GRAY_magnitude_bottom)
+    cv2.createTrackbar('GRAY Mag U', trackbars_window_name, current_thresholds.grayscale_magnitude_upper, 150, current_thresholds.set_GRAY_magnitude_upper)
+    cv2.createTrackbar('Ch Abs B', trackbars_window_name, current_thresholds.channel_abs_bottom, 150, current_thresholds.set_channel_abs_bottom)
+    cv2.createTrackbar('Ch Abs U', trackbars_window_name, current_thresholds.channel_abs_upper, 150, current_thresholds.set_channel_abs_upper)
+    cv2.createTrackbar('Ch Mag B', trackbars_window_name, current_thresholds.channel_magnitude_bottom, 150, current_thresholds.set_channel_magnitude_bottom)
+    cv2.createTrackbar('Ch Mag U', trackbars_window_name, current_thresholds.channel_magnitude_upper, 150, current_thresholds.set_channel_magnitude_upper)
 
     threshed = cv2.adaptiveThreshold(combined_binary, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 3, 0)
 
@@ -145,7 +145,7 @@ def get_V_channel_Luv(img_rgb):
 
 def get_L_channel_LAB(img_rgb):
     lab_img = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2LAB)
-    l_channel_img = lab_img[:, :, 0]
+    l_channel_img = lab_img[:, :, 2]
     return l_channel_img
 
 
@@ -160,27 +160,25 @@ def convert_and_threshold(input_img, thresholds, visu=False):
     Pipeline for combining thresholds for Sobel and magnitude
     applied on grayscale and S channel (hls colour space) images
     '''
-    # 0. Get S channel from input image
-    s_channel_img = get_B_channel_LAB(input_img)
 
-    # 0. Get S channel from input image
+    # 0. Get L channel from input image
     l_channel_img = get_L_channel_LAB(input_img)
 
     # 1. Calculate absolute threshold and magnitude threshold for grayscale image
-    abs_sobel_bin_img = abs_sobel_thresh(l_channel_img, orient='x',
+    abs_sobel_bin_img = abs_sobel_thresh(input_img, orient='x',
                                          thresh=(thresholds.grayscale_abs_bottom, thresholds.grayscale_abs_upper))
-    mag_thresh_bin_img = mag_thresh(l_channel_img, sobel_kernel=5, mag_thresh=(
+    mag_thresh_bin_img = mag_thresh(input_img, sobel_kernel=5, mag_thresh=(
     thresholds.grayscale_magnitude_bottom, thresholds.grayscale_magnitude_upper))
 
     # 2.  Calculate absolute threshold and magnitude threshold for s channel image
-    abs_sobel_bin_img_gray = abs_sobel_thresh(s_channel_img, orient='x', thresh=(
-    thresholds.channel_abs_bottom, thresholds.channel_magnitude_upper))
-    mag_thresh_bin_img_gray = mag_thresh(s_channel_img, sobel_kernel=15, mag_thresh=(
+    abs_sobel_bin_img_gray = abs_sobel_thresh(l_channel_img, orient='x', thresh=(
+    thresholds.channel_abs_bottom, thresholds.channel_abs_upper))
+    mag_thresh_bin_img_gray = mag_thresh(l_channel_img, sobel_kernel=15, mag_thresh=(
     thresholds.channel_magnitude_bottom, thresholds.channel_magnitude_upper))
 
     # Combine the two binary thresholds
-    combined_binary = np.zeros_like(s_channel_img)
-    combined_binary[((abs_sobel_bin_img == 1) & (mag_thresh_bin_img == 1))
+    combined_binary = np.zeros_like(l_channel_img)
+    combined_binary[((abs_sobel_bin_img == 1) | (mag_thresh_bin_img == 1))
                     | ((abs_sobel_bin_img_gray == 1) | (mag_thresh_bin_img_gray == 1))] = 1
 
     if visu == True:
@@ -203,7 +201,7 @@ def convert_and_threshold(input_img, thresholds, visu=False):
         ax4.imshow(mag_thresh_bin_img_gray, cmap='gray')
 
         ax5.set_title('S channel')
-        ax5.imshow(s_channel_img)
+        ax5.imshow(l_channel_img)
 
         ax6.set_title('Combined thresholds')
         ax6.imshow(combined_binary, cmap='gray')
@@ -231,17 +229,16 @@ def main():
     for fname in images_names:
         img = cv2.imread(fname)
         combined_binary = convert_and_threshold(img, thresholds, visu=True)
-        # save_binary_image(combined_binary, destination_dir_name, ntpath.basename(fname))
+        save_binary_image(combined_binary, destination_dir_name, ntpath.basename(fname))
 
 
 def set_up_thresholds_values():
-    images_names = glob.glob('../test_images/undistorted/test*.jpg')
+    tune_image_name = '../test_images/undistorted/test4.jpg'
     thresholds = Thresholds()  # use default thresholds
-    for fname in images_names:
-        img = cv2.imread(fname)
-        combined_binary = choose_threshold_value(img)
+    img = cv2.imread(tune_image_name)
+    combined_binary = choose_threshold_value(img)
 
 
 if __name__ == '__main__':
-    # main()
-    set_up_thresholds_values()
+    main()
+    #set_up_thresholds_values()
