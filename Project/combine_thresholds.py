@@ -145,7 +145,7 @@ def get_V_channel_Luv(img_rgb):
 
 def get_L_channel_LAB(img_rgb):
     lab_img = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2LAB)
-    l_channel_img = lab_img[:, :, 2]
+    l_channel_img = lab_img[:, :, 0]
     return l_channel_img
 
 
@@ -162,7 +162,7 @@ def convert_and_threshold(input_img, thresholds, visu=False):
     '''
 
     # 0. Get L channel from input image
-    l_channel_img = get_L_channel_LAB(input_img)
+    channel_img = get_L_channel_LAB(input_img)
 
     # 1. Calculate absolute threshold and magnitude threshold for grayscale image
     abs_sobel_bin_img = abs_sobel_thresh(input_img, orient='x',
@@ -171,13 +171,13 @@ def convert_and_threshold(input_img, thresholds, visu=False):
     thresholds.grayscale_magnitude_bottom, thresholds.grayscale_magnitude_upper))
 
     # 2.  Calculate absolute threshold and magnitude threshold for s channel image
-    abs_sobel_bin_img_gray = abs_sobel_thresh(l_channel_img, orient='x', thresh=(
+    abs_sobel_bin_img_gray = abs_sobel_thresh(channel_img, orient='x', thresh=(
     thresholds.channel_abs_bottom, thresholds.channel_abs_upper))
-    mag_thresh_bin_img_gray = mag_thresh(l_channel_img, sobel_kernel=15, mag_thresh=(
+    mag_thresh_bin_img_gray = mag_thresh(channel_img, sobel_kernel=15, mag_thresh=(
     thresholds.channel_magnitude_bottom, thresholds.channel_magnitude_upper))
 
     # Combine the two binary thresholds
-    combined_binary = np.zeros_like(l_channel_img)
+    combined_binary = np.zeros_like(channel_img)
     combined_binary[((abs_sobel_bin_img == 1) | (mag_thresh_bin_img == 1))
                     | ((abs_sobel_bin_img_gray == 1) | (mag_thresh_bin_img_gray == 1))] = 1
 
@@ -194,14 +194,14 @@ def convert_and_threshold(input_img, thresholds, visu=False):
         ax2.set_title('Magnitute threshold')
         ax2.imshow(mag_thresh_bin_img, cmap='gray')
 
-        ax3.set_title('Absolute Sobel - S channel')
+        ax3.set_title('Absolute Sobel - L channel (LAB)')
         ax3.imshow(abs_sobel_bin_img_gray, cmap='gray')
 
-        ax4.set_title('Magnitute threshold - S channel')
+        ax4.set_title('Magnitute threshold - L channel (LAB)')
         ax4.imshow(mag_thresh_bin_img_gray, cmap='gray')
 
-        ax5.set_title('S channel')
-        ax5.imshow(l_channel_img)
+        ax5.set_title('L channel (LAB)')
+        ax5.imshow(channel_img)
 
         ax6.set_title('Combined thresholds')
         ax6.imshow(combined_binary, cmap='gray')

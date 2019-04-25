@@ -13177,7 +13177,7 @@ To execute camera calibration set <strong>recalibrate</strong> parameters to Tru
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <h2 id="Color-spaces-and-gradient">Color spaces and gradient<a class="anchor-link" href="#Color-spaces-and-gradient">&#182;</a></h2><p>Next step is to convert undistorted image to binary by applying absolute sobel edge threshold and magnitude thresholds. <br>
-Input image is converted into <strong>grayscale</strong> and into <strong>HLS</strong> colour space. From HLS colour space dimension containing <strong>S</strong> channel is extracted. <br>
+Input image is converted into <strong>grayscale</strong> and into <strong>LAB</strong> colour space. From LAB colour space dimension containing <strong>L</strong> channel is extracted. <br>
 Result of grayscale are concatenated using <strong>and</strong> operator. Same for S channel. <br>
 And two final results united into one using <strong>or</strong> operator.</p>
 
@@ -13199,16 +13199,16 @@ And two final results united into one using <strong>or</strong> operator.</p>
 <div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># 0. Get S channel from input image</span>
-    <span class="n">s_channel_img</span> <span class="o">=</span> <span class="n">get_S_channel</span><span class="p">(</span><span class="n">input_img</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># 0. Get L (LAB) channel from input image</span>
+    <span class="n">l_channel_img</span> <span class="o">=</span> <span class="n">get_L_channel</span><span class="p">(</span><span class="n">input_img</span><span class="p">)</span>
 
     <span class="c1"># 1. Calculate absolute threshold and magnitude threshold for grayscale image</span>
     <span class="n">abs_sobel_bin_img</span> <span class="o">=</span> <span class="n">abs_sobel_thresh</span><span class="p">(</span><span class="n">input_img</span><span class="p">,</span> <span class="n">orient</span><span class="o">=</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">thresh</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">100</span><span class="p">))</span>
     <span class="n">mag_thresh_bin_img</span> <span class="o">=</span> <span class="n">mag_thresh</span><span class="p">(</span><span class="n">input_img</span><span class="p">,</span> <span class="n">sobel_kernel</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">mag_thresh</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">100</span><span class="p">))</span>
 
     <span class="c1"># 2.  Calculate absolute threshold and magnitude threshold for s channel image</span>
-    <span class="n">abs_sobel_bin_img_gray</span> <span class="o">=</span> <span class="n">abs_sobel_thresh</span><span class="p">(</span><span class="n">s_channel_img</span><span class="p">,</span> <span class="n">orient</span><span class="o">=</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">thresh</span><span class="o">=</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">))</span>
-    <span class="n">mag_thresh_bin_img_gray</span> <span class="o">=</span> <span class="n">mag_thresh</span><span class="p">(</span><span class="n">s_channel_img</span><span class="p">,</span> <span class="n">sobel_kernel</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">mag_thresh</span><span class="o">=</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">100</span><span class="p">))</span>
+    <span class="n">abs_sobel_bin_img_gray</span> <span class="o">=</span> <span class="n">abs_sobel_thresh</span><span class="p">(</span><span class="n">l_channel_img</span><span class="p">,</span> <span class="n">orient</span><span class="o">=</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">thresh</span><span class="o">=</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">))</span>
+    <span class="n">mag_thresh_bin_img_gray</span> <span class="o">=</span> <span class="n">mag_thresh</span><span class="p">(</span><span class="n">l_channel_img</span><span class="p">,</span> <span class="n">sobel_kernel</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">mag_thresh</span><span class="o">=</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">100</span><span class="p">))</span>
 
     <span class="c1"># Combine the two binary thresholds</span>
     <span class="n">combined_binary</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">s_channel_img</span><span class="p">)</span>
@@ -13592,6 +13592,7 @@ For this project we assume that the lane is about 30 meters long and 3.7 meters 
 It was very intresting to compare "histogram" and "convolution" approaches. Also it is useful to know that applying threshold using different colour spaces and combine results may give much better output than just grayscale. <br></p>
 <h3 id="Weak-points">Weak points<a class="anchor-link" href="#Weak-points">&#182;</a></h3><p>Implemented pipeline requires a lot of user iteraction, such as chosing source and destination points for perspective transformation and mask region of interest. Also the curvation and deviation measurements are very approximate due to guessing the match between source and destination points for transformation. Also the algorithm is not adapted for situation changes such as change of lane form.<br>
 In that case it is required to use additional sensors in order to increase precion level. <br></p>
+<h2 id="Ways-to-improve">Ways to improve<a class="anchor-link" href="#Ways-to-improve">&#182;</a></h2><p>Store information about previously found lane points and use them to calculate region of interest for next frame.</p>
 
 </div>
 </div>

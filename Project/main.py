@@ -23,18 +23,18 @@ def test_on_test_images():
 def test_on_image(fname = '../test_images/test7.jpg'):
     cam_mtx, dist_coeff = camera_calibration.get_calib_parameters()
     img = cv2.imread(fname)
-    M, Minv, mask_points, result = frame_pipeline.first_frame_pipeline(img, cam_mtx, dist_coeff)
+    M, Minv, mask_points, mask_points_inner, result = frame_pipeline.first_frame_pipeline(img, cam_mtx, dist_coeff)
     save_image(result, ntpath.basename(fname))
     plt.imshow(cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
     plt.show()
 
 def test_process_video():
-    video_full_name = "../videos/harder_challenge_video.mp4"
+    video_full_name = "../videos/project_video.mp4"
     cam_mtx, dist_coeff = camera_calibration.get_calib_parameters()
     process_video.process_video(video_full_name, cam_mtx, dist_coeff, output_video_name = "resulting_video.avi")
 
 if __name__ == '__main__':
-    #test_on_image()
+    test_on_image()
     #test_on_test_images()
-    test_process_video()
+    #test_process_video()
 
